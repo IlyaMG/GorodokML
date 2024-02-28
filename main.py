@@ -32,20 +32,31 @@ def getstatus():
 def predict():
     global model
 
-    artikuls_list = request.get_json()
+    data = request.get_json()
+    artikuls = np.asarray(data)
 
-    fh_list = model['горизонт_прогнозирования'].to_numpy()  # для хранения списка горизонта прогнозирования
-    sales_list = model.iloc[:, 3:-1].to_numpy()  # список продаж артикулов
+    model_by_artikuls = model[model['Артикул'].isin(artikuls)]
+
+
+    fh_list_all = model_by_artikuls['горизонт_прогнозирования'].to_numpy()  # для хранения списка горизонта прогнозирования
+    artikuls_list = model_by_artikuls['Артикул'].to_numpy()  # список всех артикулов (должен быть входящим параметром)
+    sales_list = model_by_artikuls.iloc[:, 3:-1].to_numpy()  # список продаж артикулов
     pred_list = np.empty(artikuls_list.shape)  # для хранения значений прогноза на день
+    fh_list = np.empty(artikuls_list.shape)
     pred_list[:] = np.nan
+    fh_list[:] = np.nan
 
     for i in range(len(artikuls_list)):  # итерация по индексам (по артикулам)
-        fh = fh_list[i]  # горизонт прогнозирования для артикула
+        fh = fh_list_all[i]  # горизонт прогнозирования для артикула
         sales_fh_list = sales_list[i, -fh:]  # список последних fh продаж
         pred = sales_fh_list.mean()  # среднее за день в качестве прогноза
         pred_list[i] = pred
+        fh_list[i] = fh
 
-    return jsonify(pred_list)
+    prediction_df = pd.DataFrame({'artikul':artikuls_list, 'prediction':pred_list, 'forcast_horizon':fh_list})
+
+
+    return prediction_df.to_json(orient='index')
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
